@@ -1,0 +1,88 @@
+package com.khanabook.lite.pos
+
+import androidx.work.WorkManager
+import com.khanabook.lite.pos.data.local.dao.BillDao
+import com.khanabook.lite.pos.data.local.entity.BillEntity
+import com.khanabook.lite.pos.data.local.entity.BillItemEntity
+import com.khanabook.lite.pos.data.local.entity.BillPaymentEntity
+import com.khanabook.lite.pos.data.repository.BillRepository
+import com.khanabook.lite.pos.domain.manager.InventoryConsumptionManager
+import com.khanabook.lite.pos.domain.model.OrderStatus
+import kotlinx.coroutines.test.runTest
+import org.junit.Before
+import org.junit.Test
+import org.mockito.Mock
+import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.*
+
+class BillRepositoryTest {
+
+    @Mock
+    private lateinit var billDao: BillDao
+
+    @Mock
+    private lateinit var inventoryConsumptionManager: InventoryConsumptionManager
+
+    @Mock
+    private lateinit var workManager: WorkManager
+
+    private lateinit var billRepository: BillRepository
+
+    @Before
+    fun setup() {
+        MockitoAnnotations.openMocks(this)
+        billRepository = BillRepository(billDao, inventoryConsumptionManager, workManager)
+    }
+
+    @Test
+    fun `insertFullBill should consume materials if order status is completed`() = runTest {
+        // Arrange
+        val bill = BillEntity(
+            id = 1,
+            dailyOrderId = 1,
+            dailyOrderDisplay = "B1",
+            lifetimeOrderId = 1,
+            subtotal = 100.0,
+            totalAmount = 100.0,
+            paymentMode = "cash",
+            paymentStatus = "success",
+            orderStatus = OrderStatus.COMPLETED.dbValue, // "completed"
+            createdAt = "2024-01-01"
+        )
+        val items = listOf(BillItemEntity(billId = 1, menuItemId = 1, itemName = "Item 1", quantity = 1, price = 100.0, itemTotal = 100.0))
+        val payments = listOf(BillPaymentEntity(billId = 1, paymentMode = "cash", amount = 100.0))
+
+        // Act
+        billRepository.insertFullBill(bill, items, payments)
+
+        // Assert
+        verify(billDao).insertFullBill(bill, items, payments)
+        verify(inventoryConsumptionManager).consumeMaterialsForBill(items)
+    }
+
+    @Test
+    fun `insertFullBill should NOT consume materials if order status is draft`() = runTest {
+        // Arrange
+        val bill = BillEntity(
+            id = 1,
+            dailyOrderId = 1,
+            dailyOrderDisplay = "B1",
+            lifetimeOrderId = 1,
+            subtotal = 100.0,
+            totalAmount = 100.0,
+            paymentMode = "cash",
+            paymentStatus = "failed",
+            orderStatus = "draft",
+            createdAt = "2024-01-01"
+        )
+        val items = listOf(BillItemEntity(billId = 1, menuItemId = 1, itemName = "Item 1", quantity = 1, price = 100.0, itemTotal = 100.0))
+        val payments = emptyList<BillPaymentEntity>()
+
+        // Act
+        billRepository.insertFullBill(bill, items, payments)
+
+        // Assert
+        verify(billDao).insertFullBill(bill, items, payments)
+        verify(inventoryConsumptionManager, never()).consumeMaterialsForBill(any())
+    }
+}

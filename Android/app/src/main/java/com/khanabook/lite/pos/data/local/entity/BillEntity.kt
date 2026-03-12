@@ -1,0 +1,58 @@
+﻿package com.khanabook.lite.pos.data.local.entity
+
+import androidx.room.*
+import com.google.gson.annotations.SerializedName
+
+@Entity(
+        tableName = "bills",
+        foreignKeys =
+                [
+                        ForeignKey(
+                                entity = UserEntity::class,
+                                parentColumns = ["id"],
+                                childColumns = ["created_by"],
+                                onDelete = ForeignKey.SET_NULL
+                        )],
+        indices = [
+            Index(value = ["created_by"]),
+            Index(value = ["order_status"]),
+            Index(value = ["created_at"]),
+            Index(value = ["daily_order_id"])
+        ]
+)
+data class BillEntity(
+        @SerializedName("localId") @PrimaryKey(autoGenerate = true) val id: Int = 0,
+        @ColumnInfo(name = "restaurant_id", defaultValue = "0") val restaurantId: Long = 0,
+        @ColumnInfo(name = "device_id", defaultValue = "''") val deviceId: String = "",
+        @ColumnInfo(name = "daily_order_id") val dailyOrderId: Int,
+        @ColumnInfo(name = "daily_order_display") val dailyOrderDisplay: String, // "27022026-001"
+        @ColumnInfo(name = "lifetime_order_id") val lifetimeOrderId: Int, // never resets
+        @ColumnInfo(name = "order_type", defaultValue = "order")
+        val orderType: String = "order", // 'order'
+        @ColumnInfo(name = "customer_name") val customerName: String? = null,
+        @ColumnInfo(name = "customer_whatsapp") val customerWhatsapp: String? = null,
+        val subtotal: Double,
+        @ColumnInfo(name = "gst_percentage", defaultValue = "0.0") val gstPercentage: Double = 0.0,
+        @ColumnInfo(name = "cgst_amount", defaultValue = "0.0") val cgstAmount: Double = 0.0,
+        @ColumnInfo(name = "sgst_amount", defaultValue = "0.0") val sgstAmount: Double = 0.0,
+        @ColumnInfo(name = "custom_tax_amount", defaultValue = "0.0")
+        val customTaxAmount: Double = 0.0,
+        @ColumnInfo(name = "total_amount") val totalAmount: Double,
+        @ColumnInfo(name = "payment_mode")
+        val paymentMode:
+                String, // cash | upi | pos | zomato | swiggy | own_website | part_cash_upi | ...
+        @ColumnInfo(name = "part_amount_1", defaultValue = "0.0") val partAmount1: Double = 0.0,
+        @ColumnInfo(name = "part_amount_2", defaultValue = "0.0") val partAmount2: Double = 0.0,
+        @ColumnInfo(name = "payment_status") val paymentStatus: String, // 'success' | 'failed'
+        @ColumnInfo(name = "order_status")
+        val orderStatus: String, // 'draft' | 'completed' | 'cancelled'
+        @ColumnInfo(name = "created_by") val createdBy: Int? = null,
+        @ColumnInfo(name = "created_at") val createdAt: String,
+        @ColumnInfo(name = "paid_at") val paidAt: String? = null,
+
+        // Cloud Sync Metadata
+        @ColumnInfo(name = "is_synced", defaultValue = "0") val isSynced: Boolean = false,
+        @ColumnInfo(name = "updated_at") val updatedAt: Long = System.currentTimeMillis()
+,
+    @ColumnInfo(name = "is_deleted", defaultValue = "0") val isDeleted: Boolean = false
+)

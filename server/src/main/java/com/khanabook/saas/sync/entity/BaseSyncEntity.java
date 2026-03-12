@@ -1,0 +1,43 @@
+package com.khanabook.saas.sync.entity;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+@MappedSuperclass
+@Getter
+@Setter
+public abstract class BaseSyncEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonProperty("serverId")
+    private Long id;
+
+    @Column(name = "local_id", nullable = true) // Temporary nullable to debug
+    @JsonProperty("localId")
+    @JsonAlias({"id", "localId"})
+    private Integer localId;
+
+    @Column(name = "device_id", nullable = false)
+    @JsonProperty("deviceId")
+    private String deviceId;
+
+    @Column(name = "restaurant_id", nullable = false)
+    @JsonProperty("restaurantId")
+    private Long restaurantId; // TENANT ID
+
+    @Column(name = "updated_at", nullable = false)
+    @JsonProperty("updatedAt")
+    private Long updatedAt; // App's local timestamp
+
+    // FIX 1 & 3: Soft Delete and Clock Skew Protection
+    @Column(name = "is_deleted", nullable = false)
+    @JsonProperty("isDeleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "server_updated_at", nullable = false)
+    @JsonProperty("serverUpdatedAt")
+    private Long serverUpdatedAt = System.currentTimeMillis();
+}

@@ -1,0 +1,130 @@
+package com.khanabook.saas.entity;
+
+import com.khanabook.saas.sync.entity.BaseSyncEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Table(name = "restaurantprofiles", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"restaurant_id", "device_id", "local_id"})
+})
+@Getter
+@Setter
+public class RestaurantProfile extends BaseSyncEntity {
+
+    @Column(name = "shop_name")
+    private String shopName;
+
+    @Column(name = "shop_address")
+    private String shopAddress;
+
+    @Column(name = "whatsapp_number")
+    private String whatsappNumber;
+
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "logo_path")
+    private String logoPath;
+
+    @Column(name = "fssai_number")
+    private String fssaiNumber;
+
+    @Column(name = "email_invoice_consent")
+    private Boolean emailInvoiceConsent;
+
+    // Tax
+    @Column(name = "country")
+    private String country;
+
+    @Column(name = "gst_enabled")
+    private Boolean gstEnabled;
+
+    @Column(name = "gstin")
+    private String gstin;
+
+    @Column(name = "is_tax_inclusive")
+    private Boolean isTaxInclusive;
+
+    @Column(name = "gst_percentage")
+    private Double gstPercentage;
+
+    @Column(name = "custom_tax_name")
+    private String customTaxName;
+
+    @Column(name = "custom_tax_number")
+    private String customTaxNumber;
+
+    @Column(name = "custom_tax_percentage")
+    private Double customTaxPercentage;
+
+    // Payment
+    @Column(name = "currency")
+    private String currency;
+
+    @Column(name = "upi_enabled")
+    private Boolean upiEnabled;
+
+    @Column(name = "upi_qr_path")
+    private String upiQrPath;
+
+    @Column(name = "upi_handle")
+    private String upiHandle;
+
+    @Column(name = "upi_mobile")
+    private String upiMobile;
+
+    @Column(name = "cash_enabled")
+    private Boolean cashEnabled;
+
+    @Column(name = "pos_enabled")
+    private Boolean posEnabled;
+
+    @Column(name = "zomato_enabled")
+    private Boolean zomatoEnabled;
+
+    @Column(name = "swiggy_enabled")
+    private Boolean swiggyEnabled;
+
+    @Column(name = "own_website_enabled")
+    private Boolean ownWebsiteEnabled;
+
+    // Printer
+    @Column(name = "printer_enabled")
+    private Boolean printerEnabled;
+
+    @Column(name = "printer_name")
+    private String printerName;
+
+    @Column(name = "printer_mac")
+    private String printerMac;
+
+    @Column(name = "paper_size")
+    private String paperSize;
+
+    @Column(name = "auto_print_on_success")
+    private Boolean autoPrintOnSuccess;
+
+    @Column(name = "include_logo_in_print")
+    private Boolean includeLogoInPrint;
+
+    @Column(name = "print_customer_whatsapp")
+    private Boolean printCustomerWhatsapp;
+
+    // Counters
+    @Column(name = "daily_order_counter")
+    private Integer dailyOrderCounter;
+
+    @Column(name = "lifetime_order_counter")
+    private Integer lifetimeOrderCounter;
+
+    @Column(name = "last_reset_date")
+    private String lastResetDate;
+
+    @Column(name = "session_timeout_minutes")
+    private Integer sessionTimeoutMinutes;
+}
