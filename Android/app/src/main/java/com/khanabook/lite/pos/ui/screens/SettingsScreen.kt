@@ -34,6 +34,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -68,7 +69,7 @@ fun SettingsScreen(
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
-    var section by remember { mutableStateOf("menu") }
+    var section by rememberSaveable { mutableStateOf("menu") }
 
     Box(
         modifier = Modifier

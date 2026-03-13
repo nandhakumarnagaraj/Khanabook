@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import com.khanabook.lite.pos.ui.screens.HomeScreen
 import com.khanabook.lite.pos.ui.screens.ReportsScreen
@@ -33,7 +34,7 @@ fun MainScreen(
 ) {
     val visibleTabs = remember { NavigationUtils.getVisibleTabs() }
 
-    var selectedTabIndex by remember(initialTab, visibleTabs) { 
+    var selectedTabIndex by rememberSaveable(initialTab, visibleTabs) { 
         val initialVisibleIndex = visibleTabs.indexOfFirst { it.originalIndex == initialTab }
         mutableIntStateOf(if (initialVisibleIndex != -1) initialVisibleIndex else 0) 
     }
