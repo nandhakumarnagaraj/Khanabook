@@ -15,6 +15,7 @@ import com.khanabook.lite.pos.ui.theme.PrimaryGold
 import com.khanabook.lite.pos.ui.theme.TextLight
 
 import com.khanabook.lite.pos.ui.viewmodel.AuthViewModel
+import com.khanabook.lite.pos.ui.viewmodel.MenuViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.khanabook.lite.pos.ui.navigation.TabItem
 import com.khanabook.lite.pos.ui.navigation.NavigationUtils
@@ -26,11 +27,8 @@ fun MainScreen(
     onSearchBill: () -> Unit,
     onOrderStatus: () -> Unit,
     onCallCustomer: () -> Unit,
+    menuViewModel: MenuViewModel,
     onScanClick: (String?) -> Unit = {},
-    scannedText: String? = null,
-    onScannedTextConsumed: () -> Unit = {},
-    returnToSettingsMenu: Boolean = false,
-    onSettingsMenuReturnConsumed: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val visibleTabs = remember { NavigationUtils.getVisibleTabs() }
@@ -59,10 +57,7 @@ fun MainScreen(
                 "Settings" -> SettingsScreen(
                     onBack = backToHome,
                     onScanClick = onScanClick,
-                    scannedText = scannedText,
-                    onScannedTextConsumed = onScannedTextConsumed,
-                    returnToMenuRoot = returnToSettingsMenu,
-                    onReturnToMenuRootConsumed = onSettingsMenuReturnConsumed
+                    menuViewModel = menuViewModel
                 )
             }
         }

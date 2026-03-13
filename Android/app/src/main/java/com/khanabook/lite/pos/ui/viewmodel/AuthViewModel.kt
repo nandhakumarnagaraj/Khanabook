@@ -131,7 +131,7 @@ constructor(
                 // Fallback to local login if offline or server error
                 val user = userRepository.getUserByEmail(email)
                 if (user != null) {
-                    val verified = authManager.verifyPassword(password, user.passwordHash)
+                    val verified = authManager.verifyPassword(password, user.passwordHash.orEmpty())
                     if (verified) {
                         if (user.isActive) {
                             failedLoginAttempts = 0

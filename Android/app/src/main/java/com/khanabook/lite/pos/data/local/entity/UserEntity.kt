@@ -17,7 +17,7 @@ data class UserEntity(
     val email: String,
 
     @ColumnInfo(name = "password_hash")
-    val passwordHash: String,
+    val passwordHash: String? = null,
 
     @ColumnInfo(name = "whatsapp_number")
     val whatsappNumber: String? = null,

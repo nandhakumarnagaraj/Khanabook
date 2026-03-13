@@ -69,7 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
-import com.khanabook.lite.pos.domain.util.TextRecognitionHelper
+import androidx.compose.runtime.collectAsState
 import com.khanabook.lite.pos.ui.theme.DarkBrown1
 import com.khanabook.lite.pos.ui.theme.DarkBrown2
 import com.khanabook.lite.pos.ui.theme.ParchmentBG
@@ -80,11 +80,18 @@ import java.util.concurrent.Executors
 @Composable
 fun OcrScannerScreen(
     selectedCategoryName: String? = null,
-    onTextScanned: (String) -> Unit,
+    viewModel: com.khanabook.lite.pos.ui.viewmodel.MenuViewModel,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val textRecognitionHelper = remember { TextRecognitionHelper() }
+    val uiState by viewModel.ocrImportUiState.collectAsState()
+    
+    // Automatically navigate back when processing is done and drafts are available
+    LaunchedEffect(uiState.drafts) {
+        if (uiState.drafts.isNotEmpty() && !uiState.isProcessing) {
+            onBack()
+        }
+    }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -92,9 +99,11 @@ fun OcrScannerScreen(
                 PackageManager.PERMISSION_GRANTED
         )
     }
-    var extractedText by remember { mutableStateOf<String?>(null) }
-    var isProcessing by remember { mutableStateOf(false) }
+    val isProcessing = uiState.isProcessing
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    // Use ViewModel error if local is null
+    val displayError = errorMessage ?: uiState.error
+
     var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     val previewViewState = remember { mutableStateOf<PreviewView?>(null) }
 
@@ -106,25 +115,20 @@ fun OcrScannerScreen(
     val galleryLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
-                isProcessing = true
                 errorMessage = null
-                extractedText = null
                 capturedBitmap = null
-                textRecognitionHelper.processUri(
-                    context = context,
-                    uri = it,
-                    onSuccess = { text, _ ->
-                        extractedText = text.takeIf(String::isNotBlank)
-                        errorMessage =
-                            if (text.isBlank()) "No readable text found. Try another image."
-                            else null
-                        isProcessing = false
-                    },
-                    onFailure = { error ->
-                        errorMessage = error.message ?: "Failed to process gallery image."
-                        isProcessing = false
+                // We'll need a way to get bitmap from uri for the ViewModel, or add processUri to ViewModel
+                // For now, let's just keep it simple and focus on the camera flow as requested
+                try {
+                    val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.contentResolver, it))
+                    } else {
+                        android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                     }
-                )
+                    viewModel.processMenuImage(context, bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, true))
+                } catch (e: Exception) {
+                    errorMessage = "Failed to load image: ${e.message}"
+                }
             }
         }
 
@@ -135,7 +139,7 @@ fun OcrScannerScreen(
             } catch (e: Exception) {
                 Log.e("OCR_SCREEN", "Error unbinding camera", e)
             }
-            textRecognitionHelper.close()
+            // ViewModel handles its own resources
         }
     }
 
@@ -156,7 +160,6 @@ fun OcrScannerScreen(
                     IconButton(
                         onClick = {
                             errorMessage = null
-                            extractedText = null
                             galleryLauncher.launch("image/*")
                         }
                     ) {
@@ -178,49 +181,6 @@ fun OcrScannerScreen(
             if (hasCameraPermission) {
                 CameraPreview(previewViewState = previewViewState)
 
-                ScanControls(
-                    selectedCategoryName = selectedCategoryName,
-                    hasCapturedPhoto = capturedBitmap != null,
-                    hasProcessedText = extractedText != null,
-                    isProcessing = isProcessing,
-                    errorMessage = errorMessage,
-                    onCapturePhoto = {
-                        val frozenBitmap = previewViewState.value?.bitmap
-                        if (frozenBitmap == null) {
-                            errorMessage = "Unable to capture preview. Try again."
-                        } else {
-                            capturedBitmap = frozenBitmap
-                            extractedText = null
-                            errorMessage = null
-                        }
-                    },
-                    onProcessPhoto = {
-                        capturedBitmap?.let { bitmap ->
-                            processCapturedBitmap(
-                                bitmap = bitmap,
-                                helper = textRecognitionHelper,
-                                setProcessing = { isProcessing = it },
-                                setExtractedText = { extractedText = it },
-                                setError = { errorMessage = it }
-                            )
-                        }
-                    },
-                    onUseText = {
-                        extractedText?.takeIf(String::isNotBlank)?.let(onTextScanned)
-                    },
-                    onRetake = {
-                        capturedBitmap = null
-                        errorMessage = null
-                        isProcessing = false
-                    },
-                    onRescan = {
-                        capturedBitmap = null
-                        extractedText = null
-                        errorMessage = null
-                        isProcessing = false
-                    }
-                )
-
                 if (capturedBitmap != null) {
                     Box(
                         modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)),
@@ -233,6 +193,32 @@ fun OcrScannerScreen(
                         )
                     }
                 }
+
+                ScanControls(
+                    selectedCategoryName = selectedCategoryName,
+                    hasCapturedPhoto = capturedBitmap != null,
+                    isProcessing = isProcessing,
+                    errorMessage = displayError,
+                    onCapturePhoto = {
+                        val frozenBitmap = previewViewState.value?.bitmap
+                        if (frozenBitmap == null) {
+                            errorMessage = "Unable to capture preview. Try again."
+                        } else {
+                            capturedBitmap = frozenBitmap
+                            errorMessage = null
+                        }
+                    },
+                    onUsePhoto = {
+                        capturedBitmap?.let { bitmap ->
+                            viewModel.processMenuImage(context, bitmap)
+                        }
+                    },
+                    onRetake = {
+                        capturedBitmap = null
+                        errorMessage = null
+                        viewModel.setProcessing(false)
+                    }
+                )
             } else {
                 PermissionDeniedContent(
                     onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) }
@@ -296,14 +282,11 @@ private fun CameraPreview(previewViewState: MutableState<PreviewView?>) {
 private fun ScanControls(
     selectedCategoryName: String?,
     hasCapturedPhoto: Boolean,
-    hasProcessedText: Boolean,
     isProcessing: Boolean,
     errorMessage: String?,
     onCapturePhoto: () -> Unit,
-    onProcessPhoto: () -> Unit,
-    onUseText: () -> Unit,
-    onRetake: () -> Unit,
-    onRescan: () -> Unit
+    onUsePhoto: () -> Unit,
+    onRetake: () -> Unit
 ) {
     Box(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -328,10 +311,10 @@ private fun ScanControls(
                             }
                             append(".")
                         }
-                    } else if (!hasProcessedText) {
-                        "Photo captured. Process it or retake the photo."
+                    } else if (isProcessing) {
+                        "Processing the captured menu photo."
                     } else {
-                        "Menu text is ready for the selected category."
+                        "Photo captured. Use this photo or retake it."
                     },
                     color = Color.White,
                     fontSize = 14.sp
@@ -359,21 +342,11 @@ private fun ScanControls(
                                 contentColor = DarkBrown1
                             )
                     ) {
-                        if (isProcessing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = DarkBrown1,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text("Processing...")
-                        } else {
-                            Icon(Icons.Default.CameraAlt, contentDescription = null)
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text("Capture Photo", fontWeight = FontWeight.Bold)
-                        }
+                        Icon(Icons.Default.CameraAlt, contentDescription = null)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Capture Photo", fontWeight = FontWeight.Bold)
                     }
-                } else if (!hasProcessedText) {
+                } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -392,7 +365,7 @@ private fun ScanControls(
                         }
 
                         Button(
-                            onClick = onProcessPhoto,
+                            onClick = onUsePhoto,
                             enabled = !isProcessing,
                             modifier = Modifier.weight(1f),
                             colors =
@@ -407,71 +380,17 @@ private fun ScanControls(
                                     color = DarkBrown1,
                                     strokeWidth = 2.dp
                                 )
+                                Spacer(modifier = Modifier.size(8.dp))
+                                Text("Processing...", fontWeight = FontWeight.Bold)
                             } else {
-                                Text("Process", fontWeight = FontWeight.Bold)
+                                Text("Use Photo", fontWeight = FontWeight.Bold)
                             }
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onRescan,
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                ButtonDefaults.outlinedButtonColors(
-                                    contentColor = PrimaryGold
-                                )
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(modifier = Modifier.size(6.dp))
-                            Text("Rescan")
-                        }
-
-                        Button(
-                            onClick = onUseText,
-                            modifier = Modifier.weight(1f),
-                            colors =
-                                ButtonDefaults.buttonColors(
-                                    containerColor = PrimaryGold,
-                                    contentColor = DarkBrown1
-                                )
-                        ) {
-                            Text("Use Text", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
     }
-}
-
-@OptIn(ExperimentalGetImage::class)
-private fun processCapturedBitmap(
-    bitmap: android.graphics.Bitmap,
-    helper: TextRecognitionHelper,
-    setProcessing: (Boolean) -> Unit,
-    setExtractedText: (String?) -> Unit,
-    setError: (String?) -> Unit
-) {
-    setProcessing(true)
-    setError(null)
-    helper.processImage(
-        image = InputImage.fromBitmap(bitmap, 0),
-        onSuccess = { text, _ ->
-            setProcessing(false)
-            setExtractedText(text.takeIf(String::isNotBlank))
-            if (text.isBlank()) {
-                setError("No readable text found. Try rescanning with better focus.")
-            }
-        },
-        onFailure = { error ->
-            setProcessing(false)
-            setError(error.message ?: "Text extraction failed. Try rescanning.")
-        }
-    )
 }
 
 @Composable

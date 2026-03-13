@@ -20,7 +20,7 @@ import com.khanabook.lite.pos.data.local.entity.*
                         BillPaymentEntity::class,
                         StockLogEntity::class
                 ],
-        version = 18,
+        version = 19,
         exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -56,6 +56,24 @@ abstract class AppDatabase : RoomDatabase() {
                     db.execSQL("ALTER TABLE `item_variants` ADD COLUMN `low_stock_threshold` REAL NOT NULL DEFAULT 0.0")
                 } catch (e: Exception) {
                     // Columns might already exist
+                }
+            }
+        }
+        
+        // Migration 18 to 19: Add/Fix country and currency columns
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Safely add country column if it doesn't exist, or fix NULL values
+                try {
+                    db.execSQL("ALTER TABLE `restaurant_profile` ADD COLUMN `country` TEXT DEFAULT 'India'")
+                } catch (e: Exception) {
+                    db.execSQL("UPDATE `restaurant_profile` SET `country` = 'India' WHERE `country` IS NULL")
+                }
+
+                try {
+                    db.execSQL("ALTER TABLE `restaurant_profile` ADD COLUMN `currency` TEXT DEFAULT 'INR'")
+                } catch (e: Exception) {
+                    db.execSQL("UPDATE `restaurant_profile` SET `currency` = 'INR' WHERE `currency` IS NULL")
                 }
             }
         }

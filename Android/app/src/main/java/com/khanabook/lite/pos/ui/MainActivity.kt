@@ -1,4 +1,4 @@
-﻿package com.khanabook.lite.pos.ui
+package com.khanabook.lite.pos.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,6 +15,7 @@ import com.khanabook.lite.pos.ui.navigation.*
 import com.khanabook.lite.pos.ui.screens.*
 import com.khanabook.lite.pos.ui.theme.KhanaBookLiteTheme
 import com.khanabook.lite.pos.ui.viewmodel.AuthViewModel
+import com.khanabook.lite.pos.ui.viewmodel.MenuViewModel
 import com.khanabook.lite.pos.domain.manager.SessionManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
             KhanaBookLiteTheme {
                 val navController = rememberNavController()
                 val authViewModel: AuthViewModel = hiltViewModel()
+                val menuViewModel: MenuViewModel = hiltViewModel()
                 val currentUser by authViewModel.currentUser.collectAsState()
                 val networkMonitor = remember { com.khanabook.lite.pos.domain.util.NetworkMonitor(this) }
                 val connectionStatus by networkMonitor.status.collectAsState(initial = null)
@@ -140,26 +142,18 @@ class MainActivity : ComponentActivity() {
                     composable("main/{tab}") { backStackEntry ->
                         val selectedTab =
                                 backStackEntry.arguments?.getString("tab")?.toIntOrNull() ?: 0
-                        val scannedText = backStackEntry.savedStateHandle.get<String>("scanned_text_menu_config")
-                        val returnToSettingsMenu =
-                                backStackEntry.savedStateHandle.get<Boolean>("menu_config_return_to_menu") == true
                         MainScreen(
                                 initialTab = selectedTab,
                                 onNewBill = { navController.navigate("new_bill") },
                                 onSearchBill = { navController.navigate("search_bill") },
                                 onOrderStatus = { navController.navigate("order_status") },
                                 onCallCustomer = { navController.navigate("call_customer") },
+                                menuViewModel = menuViewModel,
                                 onScanClick = { categoryName ->
                                     navController.currentBackStackEntry
                                         ?.savedStateHandle
                                         ?.set("ocr_category_name", categoryName)
                                     navController.navigate("ocr_scanner/menu_config")
-                                },
-                                scannedText = scannedText,
-                                onScannedTextConsumed = { backStackEntry.savedStateHandle.remove<String>("scanned_text_menu_config") },
-                                returnToSettingsMenu = returnToSettingsMenu,
-                                onSettingsMenuReturnConsumed = {
-                                    backStackEntry.savedStateHandle.remove<Boolean>("menu_config_return_to_menu")
                                 }
                         )
                     }
@@ -170,19 +164,13 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("ocr_scanner/{source}") { backStackEntry ->
-                        val source = backStackEntry.arguments?.getString("source") ?: "new_bill"
                         val selectedCategoryName =
                             navController.previousBackStackEntry
                                 ?.savedStateHandle
                                 ?.get<String>("ocr_category_name")
                         OcrScannerScreen(
                                 selectedCategoryName = selectedCategoryName,
-                                onTextScanned = { text ->
-                                    navController.previousBackStackEntry?.savedStateHandle?.set("scanned_text_$source", text)
-                                    navController.previousBackStackEntry?.savedStateHandle?.set("menu_config_return_to_menu", true)
-                                    navController.previousBackStackEntry?.savedStateHandle?.remove<String>("ocr_category_name")
-                                    navController.popBackStack()
-                                },
+                                viewModel = menuViewModel,
                                 onBack = {
                                     navController.previousBackStackEntry?.savedStateHandle?.remove<String>("ocr_category_name")
                                     navController.popBackStack()

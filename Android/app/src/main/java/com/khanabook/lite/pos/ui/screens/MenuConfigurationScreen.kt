@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.khanabook.lite.pos.data.local.entity.CategoryEntity
 import com.khanabook.lite.pos.data.local.entity.ItemVariantEntity
 import com.khanabook.lite.pos.data.local.entity.MenuItemEntity
@@ -39,9 +38,7 @@ import com.khanabook.lite.pos.ui.viewmodel.MenuViewModel
 fun MenuConfigurationScreen(
     onBack: () -> Unit,
     onScanClick: (String?) -> Unit = {},
-    scannedText: String? = null,
-    onScannedTextConsumed: () -> Unit = {},
-    viewModel: MenuViewModel = hiltViewModel()
+    viewModel: MenuViewModel
 ) {
     val categories by viewModel.categories.collectAsState()
     val menuItems by viewModel.menuItems.collectAsState()
@@ -49,15 +46,14 @@ fun MenuConfigurationScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val disabledCount by viewModel.disabledItemsCount.collectAsState()
     val addOnsCount by viewModel.menuAddOnsCount.collectAsState()
-    val scannedDrafts by viewModel.scannedDrafts.collectAsState()
+    val ocrImportUiState by viewModel.ocrImportUiState.collectAsState()
+    val scannedDrafts = ocrImportUiState.drafts
+    val configMode = ocrImportUiState.configMode
 
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var showAddItemDialog by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<MenuItemEntity?>(null) }
     var showVariantsFor by remember { mutableStateOf<MenuWithVariants?>(null) }
-    
-    // Mode Selection State: null = No selection, "manual" = Manual mode, "scan" = Scan mode
-    var configMode by remember { mutableStateOf<String?>(null) }
     
     val context = androidx.compose.ui.platform.LocalContext.current
     val selectedCategoryName = remember(categories, selectedCategoryId) {
@@ -68,17 +64,6 @@ fun MenuConfigurationScreen(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
         uri?.let { viewModel.extractTextFromPdf(context, it) }
-    }
-
-    // Process scanned text
-    LaunchedEffect(scannedText) {
-        if (scannedText != null && selectedCategoryId != null) {
-            viewModel.parseScannedTextToDrafts(scannedText)
-            onScannedTextConsumed()
-        } else if (scannedText != null && selectedCategoryId == null) {
-            android.widget.Toast.makeText(context, "Please select a category before scanning.", android.widget.Toast.LENGTH_LONG).show()
-            onScannedTextConsumed()
-        }
     }
 
     Box(
@@ -94,7 +79,7 @@ fun MenuConfigurationScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { if (configMode != null) configMode = null else onBack() }) {
+                IconButton(onClick = { if (configMode != null) viewModel.setConfigMode(null) else onBack() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryGold)
                 }
                 Text(
@@ -106,7 +91,7 @@ fun MenuConfigurationScreen(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 if (configMode != null) {
-                    IconButton(onClick = { configMode = null }) {
+                    IconButton(onClick = { viewModel.setConfigMode(null) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Change Mode", tint = PrimaryGold)
                     }
                 } else {
@@ -118,8 +103,8 @@ fun MenuConfigurationScreen(
                 // Mode Selection UI
                 ModeSelectionView(
                     selectedCategoryName = selectedCategoryName,
-                    onManualClick = { configMode = "manual" },
-                    onScanClick = { configMode = "scan" },
+                    onManualClick = { viewModel.setConfigMode("manual") },
+                    onScanClick = { viewModel.setConfigMode("scan") },
                     onPdfClick = { pdfPickerLauncher.launch("application/pdf") }
                 )
             } else {

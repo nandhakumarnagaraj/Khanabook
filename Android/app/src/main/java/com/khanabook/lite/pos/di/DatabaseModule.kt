@@ -73,7 +73,7 @@ object DatabaseModule {
                                         AppDatabase.DATABASE_NAME
                                 )
                                 .openHelperFactory(factory)
-                                .addMigrations(AppDatabase.MIGRATION_17_18)
+                                .addMigrations(AppDatabase.MIGRATION_17_18, AppDatabase.MIGRATION_18_19)
 
                 return builder.build()
         }

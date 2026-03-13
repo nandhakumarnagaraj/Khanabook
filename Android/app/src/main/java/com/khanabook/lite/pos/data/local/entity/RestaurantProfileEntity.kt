@@ -23,7 +23,7 @@ data class RestaurantProfileEntity(
 
     // Tax
     @ColumnInfo(defaultValue = "India")
-    val country: String = "India",
+    val country: String? = "India",
     @ColumnInfo(name = "gst_enabled", defaultValue = "0")
     val gstEnabled: Boolean = false,
     val gstin: String? = null,
@@ -40,7 +40,7 @@ data class RestaurantProfileEntity(
 
     // Payment
     @ColumnInfo(defaultValue = "INR")
-    val currency: String = "INR",
+    val currency: String? = "INR",
     @ColumnInfo(name = "upi_enabled", defaultValue = "0")
     val upiEnabled: Boolean = false,
     @ColumnInfo(name = "upi_qr_path")

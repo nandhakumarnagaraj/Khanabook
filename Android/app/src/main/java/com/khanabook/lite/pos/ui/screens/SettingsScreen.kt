@@ -52,6 +52,7 @@ import com.khanabook.lite.pos.domain.manager.BluetoothPrinterManager
 import com.khanabook.lite.pos.domain.util.*
 import com.khanabook.lite.pos.ui.theme.*
 import com.khanabook.lite.pos.ui.viewmodel.AuthViewModel
+import com.khanabook.lite.pos.ui.viewmodel.MenuViewModel
 import com.khanabook.lite.pos.ui.viewmodel.SettingsViewModel
 import java.io.File
 import java.io.FileOutputStream
@@ -61,23 +62,13 @@ import java.io.FileOutputStream
 fun SettingsScreen(
     onBack: () -> Unit,
     onScanClick: (String?) -> Unit = {},
-    scannedText: String? = null,
-    onScannedTextConsumed: () -> Unit = {},
-    returnToMenuRoot: Boolean = false,
-    onReturnToMenuRootConsumed: () -> Unit = {},
+    menuViewModel: MenuViewModel,
     viewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
     var section by remember { mutableStateOf("menu") }
-
-    LaunchedEffect(returnToMenuRoot) {
-        if (returnToMenuRoot) {
-            section = "menu"
-            onReturnToMenuRootConsumed()
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -196,8 +187,7 @@ fun SettingsScreen(
                         MenuConfigurationScreen(
                             onBack = { section = "menu" },
                             onScanClick = onScanClick,
-                            scannedText = scannedText,
-                            onScannedTextConsumed = onScannedTextConsumed
+                            viewModel = menuViewModel
                         )
                     }
                     "payment" -> {

@@ -230,26 +230,48 @@ class MenuViewModel @Inject constructor(
         val isSelected: Boolean = true
     )
 
-    private val _scannedDrafts = MutableStateFlow<List<DraftMenuItem>>(emptyList())
-    val scannedDrafts: StateFlow<List<DraftMenuItem>> = _scannedDrafts
+    data class OcrImportUiState(
+        val configMode: String? = null, // null, "manual", "scan"
+        val isProcessing: Boolean = false,
+        val rawText: String = "",
+        val drafts: List<DraftMenuItem> = emptyList(),
+        val error: String? = null
+    )
+
+    private val _ocrImportUiState = MutableStateFlow(OcrImportUiState())
+    val ocrImportUiState: StateFlow<OcrImportUiState> = _ocrImportUiState.asStateFlow()
 
     fun clearDrafts() {
-        _scannedDrafts.value = emptyList()
+        _ocrImportUiState.update { 
+            it.copy(rawText = "", drafts = emptyList(), isProcessing = false, error = null) 
+        }
+    }
+
+    fun setConfigMode(mode: String?) {
+        _ocrImportUiState.update { it.copy(configMode = mode) }
+    }
+
+    fun setProcessing(isProcessing: Boolean) {
+        _ocrImportUiState.update { it.copy(isProcessing = isProcessing, error = null) }
+    }
+
+    fun setError(error: String?) {
+        _ocrImportUiState.update { it.copy(error = error, isProcessing = false) }
     }
 
     fun updateDraft(index: Int, updated: DraftMenuItem) {
-        val current = _scannedDrafts.value.toMutableList()
+        val current = _ocrImportUiState.value.drafts.toMutableList()
         if (index in current.indices) {
             current[index] = updated
-            _scannedDrafts.value = current
+            _ocrImportUiState.update { it.copy(drafts = current) }
         }
     }
 
     fun toggleDraftSelection(index: Int) {
-        val current = _scannedDrafts.value.toMutableList()
+        val current = _ocrImportUiState.value.drafts.toMutableList()
         if (index in current.indices) {
             current[index] = current[index].copy(isSelected = !current[index].isSelected)
-            _scannedDrafts.value = current
+            _ocrImportUiState.update { it.copy(drafts = current) }
         }
     }
 
@@ -268,7 +290,7 @@ class MenuViewModel @Inject constructor(
                     document.close()
                     
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        parseScannedTextToDrafts(text)
+                        submitOcrText(text)
                     }
                 }
             } catch (e: Exception) {
@@ -283,14 +305,47 @@ class MenuViewModel @Inject constructor(
     /**
      * Parses raw OCR text into Draft items for review.
      */
-    fun parseScannedTextToDrafts(text: String) {
-        _scannedDrafts.value = parseDraftsFromText(text)
+    fun submitOcrText(text: String) {
+        _ocrImportUiState.update { 
+            it.copy(
+                rawText = text,
+                drafts = parseDraftsFromText(text),
+                isProcessing = false,
+                error = null
+            )
+        }
+    }
+
+    /**
+     * Processes a bitmap image using ML Kit for text recognition.
+     */
+    fun processMenuImage(context: Context, bitmap: android.graphics.Bitmap) {
+        setProcessing(true)
+        val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bitmap, 0)
+        val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+            com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS
+        )
+
+        recognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                if (visionText.text.isBlank()) {
+                    setError("No readable text found. Try another photo.")
+                } else {
+                    submitOcrText(visionText.text)
+                }
+            }
+            .addOnFailureListener { e ->
+                setError("Processing failed: ${e.message}")
+            }
+            .addOnCompleteListener {
+                recognizer.close()
+            }
     }
 
     fun saveDraftsToCategory(categoryId: Int) {
         viewModelScope.launch {
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            val selectedDrafts = _scannedDrafts.value.filter { it.isSelected }
+            val selectedDrafts = _ocrImportUiState.value.drafts.filter { it.isSelected }
             
             for (draft in selectedDrafts) {
                 val existing = menuRepository.getItemsByCategoryFlow(categoryId).first().any { 
